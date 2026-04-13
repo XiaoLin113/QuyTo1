@@ -5,9 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quỹ chung (Online)</title>
 
+<!-- FIX GitHub Pages 404 -->
+<!-- File này PHẢI đặt tên là index.html -->
+
+<!-- FIX GitHub Pages 404 -->
+<!-- File này PHẢI đặt tên là index.html -->
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 body { font-family: Arial; margin:0; background:#f5f5f5; }
@@ -21,23 +30,38 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 .expense { color:red; }
 .hidden { display:none; }
 .topbar { display:flex; justify-content:space-between; }
+.warn { color:red; }
 </style>
 </head>
 <body>
+<!-- ⚠️ Hướng dẫn fix lỗi 404 GitHub Pages:
+1. Đảm bảo file này tên là: index.html
+2. Đặt ở THƯ MỤC GỐC của repo (không nằm trong folder khác)
+3. Vào Settings → Pages → chọn branch main
+4. Link sẽ là: https://username.github.io/ten-repo/
+-->
+<!-- ⚠️ Hướng dẫn fix lỗi 404 GitHub Pages:
+1. Đảm bảo file này tên là: index.html
+2. Đặt ở THƯ MỤC GỐC của repo (không nằm trong folder khác)
+3. Vào Settings → Pages → chọn branch main
+4. Link sẽ là: https://username.github.io/ten-repo/
+-->
 <div class="container">
 
 <div class="topbar">
 <h2>Quỹ Tổ Sản Xuất 1 - Điện Lực Kiến Xương</h2>
 <div>
-<button onclick="showLogin()" id="loginBtn">Đăng nhập</button>
-<button onclick="logout()" id="logoutBtn" class="hidden">Đăng xuất</button>
+<button id="loginBtn">Đăng nhập</button>
+<button id="logoutBtn" class="hidden">Đăng xuất</button>
 </div>
 </div>
+
+<div id="warn" class="card warn hidden">⚠️ Chưa cấu hình Firebase</div>
 
 <div id="loginBox" class="card hidden">
 <input type="text" id="username" placeholder="Tên đăng nhập">
 <input type="password" id="password" placeholder="Mật khẩu">
-<button onclick="login()">Đăng nhập</button>
+<button id="loginSubmit">Đăng nhập</button>
 </div>
 
 <div class="card">
@@ -48,13 +72,13 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 
 <div id="adminPanel" class="card hidden">
 <textarea id="desc" placeholder="Nội dung"></textarea>
-<input type="text" id="amount" placeholder="Số tiền" oninput="formatMoney(this)">
+<input type="text" id="amount" placeholder="Số tiền">
 <select id="type">
 <option value="income">Tiền vào</option>
 <option value="expense">Tiền ra</option>
 </select>
-<button onclick="addTransaction()">Thêm</button>
-<button onclick="exportExcel()">📥 Xuất Excel</button>
+<button id="addBtn">Thêm</button>
+<button id="exportBtn">📥 Xuất Excel</button>
 </div>
 
 <div class="card">
@@ -76,20 +100,28 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 </div>
 
 <script>
+// ===== CONFIG FIREBASE =====
 const firebaseConfig = {
   apiKey: "YOUR_KEY",
   authDomain: "YOUR_DOMAIN",
   projectId: "YOUR_PROJECT_ID",
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+let db = null;
+if(firebaseConfig.apiKey.includes("YOUR_")){
+  document.getElementById('warn').classList.remove('hidden');
+}else{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+}
 
+// ===== BIẾN =====
 const ADMIN_USER = "To1";
 const ADMIN_PASS = "Nhieutien$2026";
 let isAdmin = false;
 let allData = [];
 
+// DOM
 const totalEl = document.getElementById('total');
 const totalIncomeEl = document.getElementById('totalIncome');
 const totalExpenseEl = document.getElementById('totalExpense');
@@ -103,11 +135,18 @@ const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const loginBox = document.getElementById('loginBox');
 
-function showLogin(){ loginBox.classList.toggle('hidden'); }
+// ===== EVENT =====
+loginBtn.onclick = () => loginBox.classList.toggle('hidden');
+logoutBtn.onclick = logout;
+document.getElementById('loginSubmit').onclick = login;
+document.getElementById('addBtn').onclick = addTransaction;
+document.getElementById('exportBtn').onclick = exportExcel;
 
+// ===== LOGIN =====
 function login(){
-  let user = username.value;
-  let pass = password.value;
+  let user = document.getElementById('username').value;
+  let pass = document.getElementById('password').value;
+
   if(user === ADMIN_USER && pass === ADMIN_PASS){
     isAdmin = true;
     adminPanel.classList.remove('hidden');
@@ -124,42 +163,39 @@ function logout(){
   logoutBtn.classList.add('hidden');
 }
 
-function formatMoney(input){
-  let v = input.value.replace(/,/g,'').replace(/\D/g,'');
-  if(!v) return input.value='';
-  input.value = Number(v).toLocaleString('vi-VN');
-}
+// ===== FORMAT =====
+amount.addEventListener('input', ()=>{
+  let v = amount.value.replace(/,/g,'').replace(/\D/g,'');
+  if(!v) return amount.value='';
+  amount.value = Number(v).toLocaleString('vi-VN');
+});
 
 function formatDate(){ return new Date().toLocaleString('vi-VN'); }
 
+// ===== RENDER =====
 function render(snapshot){
   incomeList.innerHTML='';
   expenseList.innerHTML='';
-  allData = [];
+  allData=[];
 
   let total=0,income=0,expense=0;
 
   snapshot.forEach(doc=>{
-    let d = doc.data() || {};
-    let amountVal = Number(d.amount)||0;
-    let typeVal = d.type || 'income';
+    let d = doc.data()||{};
+    let amt = Number(d.amount)||0;
+    let t = d.type||'income';
 
-    allData.push({ ...d, id: doc.id });
+    allData.push({...d,id:doc.id});
 
     let row = `<tr>
-    <td>${d.date||''}</td>
-    <td>${d.desc||''}</td>
-    <td class="${typeVal}">${amountVal.toLocaleString()}</td>
-    <td class="adminOnly">${isAdmin?`<button onclick="remove('${doc.id}')">X</button>`:''}</td>
+      <td>${d.date||''}</td>
+      <td>${d.desc||''}</td>
+      <td class="${t}">${amt.toLocaleString()}</td>
+      <td>${isAdmin?`<button onclick="remove('${doc.id}')">X</button>`:''}</td>
     </tr>`;
 
-    if(typeVal==='income'){
-      incomeList.innerHTML+=row;
-      total+=amountVal; income+=amountVal;
-    }else{
-      expenseList.innerHTML+=row;
-      total-=amountVal; expense+=amountVal;
-    }
+    if(t==='income'){ incomeList.innerHTML+=row; total+=amt; income+=amt; }
+    else{ expenseList.innerHTML+=row; total-=amt; expense+=amt; }
   });
 
   totalEl.innerText = total.toLocaleString();
@@ -167,11 +203,17 @@ function render(snapshot){
   totalExpenseEl.innerText = expense.toLocaleString();
 }
 
-// realtime
-db.collection("fund").onSnapshot(render);
+// ===== FIRESTORE =====
+if(db){
+  db.collection("fund").onSnapshot(render, err=>{
+    console.error(err);
+    alert("Lỗi Firebase (check rules hoặc config)");
+  });
+}
 
+// ===== CRUD =====
 function addTransaction(){
-  if(!isAdmin) return;
+  if(!isAdmin || !db) return;
 
   let raw = amount.value.replace(/,/g,'');
   let val = parseInt(raw);
@@ -189,24 +231,25 @@ function addTransaction(){
 }
 
 function remove(id){
-  if(confirm('Xóa?')) db.collection("fund").doc(id).delete();
+  if(db && confirm('Xóa?')) db.collection("fund").doc(id).delete();
 }
 
-// 🔥 EXPORT EXCEL (CSV)
+// ===== EXPORT EXCEL =====
 function exportExcel(){
-  if(!isAdmin) return alert('Chỉ admin được xuất file');
+  if(!isAdmin) return alert('Chỉ admin');
+  if(!allData.length) return alert('Không có dữ liệu');
 
-  let csv = "Ngày,Nội dung,Loại,Số tiền\n";
+  let data = allData.map(i=>({
+    "Ngày": i.date||'',
+    "Nội dung": i.desc||'',
+    "Loại": i.type==='income'?'Tiền vào':'Tiền ra',
+    "Số tiền": Number(i.amount)||0
+  }));
 
-  allData.forEach(item=>{
-    csv += `"${item.date}","${item.desc}","${item.type}","${item.amount}"\n`;
-  });
-
-  let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  let link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "quy_to.csv";
-  link.click();
+  let ws = XLSX.utils.json_to_sheet(data);
+  let wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "QuyTo");
+  XLSX.writeFile(wb, "quy_to.xlsx");
 }
 </script>
 </body>
