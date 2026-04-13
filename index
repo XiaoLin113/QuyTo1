@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quỹ chung (Online)</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+body { font-family: Arial; margin:0; background:#f5f5f5; }
+.container { max-width:900px; margin:auto; padding:15px; }
+.card { background:white; padding:15px; border-radius:10px; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.1);} 
+input, select, button, textarea { padding:10px; margin:5px 0; width:100%; border-radius:8px; border:1px solid #ccc; }
+button { background:#007bff; color:white; border:none; cursor:pointer; }
+table { width:100%; border-collapse:collapse; }
+th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
+.income { color:green; }
+.expense { color:red; }
+.hidden { display:none; }
+.topbar { display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+<h2>Quỹ Tổ Sản Xuất 1 - Điện Lực Kiến Xương</h2>
+<div>
+<button onclick="showLogin()" id="loginBtn">Đăng nhập</button>
+<button onclick="logout()" id="logoutBtn" class="hidden">Đăng xuất</button>
+</div>
+</div>
+
+<div id="loginBox" class="card hidden">
+<input type="text" id="username" placeholder="Tên đăng nhập">
+<input type="password" id="password" placeholder="Mật khẩu">
+<button onclick="login()">Đăng nhập</button>
+</div>
+
+<div class="card">
+<h3>Tổng quỹ: <span id="total">0</span> VNĐ</h3>
+<p style="color:green">Tiền vào: <span id="totalIncome">0</span> VNĐ</p>
+<p style="color:red">Tiền ra: <span id="totalExpense">0</span> VNĐ</p>
+</div>
+
+<div id="adminPanel" class="card hidden">
+<textarea id="desc" placeholder="Nội dung"></textarea>
+<input type="text" id="amount" placeholder="Số tiền" oninput="formatMoney(this)">
+<select id="type">
+<option value="income">Tiền vào</option>
+<option value="expense">Tiền ra</option>
+</select>
+<button onclick="addTransaction()">Thêm</button>
+<button onclick="exportExcel()">📥 Xuất Excel</button>
+</div>
+
+<div class="card">
+<h3>Tiền vào</h3>
+<table>
+<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th class="adminOnly">Xóa</th></tr></thead>
+<tbody id="incomeList"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>Tiền ra</h3>
+<table>
+<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th class="adminOnly">Xóa</th></tr></thead>
+<tbody id="expenseList"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const ADMIN_USER = "To1";
+const ADMIN_PASS = "Nhieutien$2026";
+let isAdmin = false;
+let allData = [];
+
+const totalEl = document.getElementById('total');
+const totalIncomeEl = document.getElementById('totalIncome');
+const totalExpenseEl = document.getElementById('totalExpense');
+const incomeList = document.getElementById('incomeList');
+const expenseList = document.getElementById('expenseList');
+const desc = document.getElementById('desc');
+const amount = document.getElementById('amount');
+const type = document.getElementById('type');
+const adminPanel = document.getElementById('adminPanel');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginBox = document.getElementById('loginBox');
+
+function showLogin(){ loginBox.classList.toggle('hidden'); }
+
+function login(){
+  let user = username.value;
+  let pass = password.value;
+  if(user === ADMIN_USER && pass === ADMIN_PASS){
+    isAdmin = true;
+    adminPanel.classList.remove('hidden');
+    loginBtn.classList.add('hidden');
+    logoutBtn.classList.remove('hidden');
+    loginBox.classList.add('hidden');
+  } else alert('Sai tài khoản');
+}
+
+function logout(){
+  isAdmin = false;
+  adminPanel.classList.add('hidden');
+  loginBtn.classList.remove('hidden');
+  logoutBtn.classList.add('hidden');
+}
+
+function formatMoney(input){
+  let v = input.value.replace(/,/g,'').replace(/\D/g,'');
+  if(!v) return input.value='';
+  input.value = Number(v).toLocaleString('vi-VN');
+}
+
+function formatDate(){ return new Date().toLocaleString('vi-VN'); }
+
+function render(snapshot){
+  incomeList.innerHTML='';
+  expenseList.innerHTML='';
+  allData = [];
+
+  let total=0,income=0,expense=0;
+
+  snapshot.forEach(doc=>{
+    let d = doc.data() || {};
+    let amountVal = Number(d.amount)||0;
+    let typeVal = d.type || 'income';
+
+    allData.push({ ...d, id: doc.id });
+
+    let row = `<tr>
+    <td>${d.date||''}</td>
+    <td>${d.desc||''}</td>
+    <td class="${typeVal}">${amountVal.toLocaleString()}</td>
+    <td class="adminOnly">${isAdmin?`<button onclick="remove('${doc.id}')">X</button>`:''}</td>
+    </tr>`;
+
+    if(typeVal==='income'){
+      incomeList.innerHTML+=row;
+      total+=amountVal; income+=amountVal;
+    }else{
+      expenseList.innerHTML+=row;
+      total-=amountVal; expense+=amountVal;
+    }
+  });
+
+  totalEl.innerText = total.toLocaleString();
+  totalIncomeEl.innerText = income.toLocaleString();
+  totalExpenseEl.innerText = expense.toLocaleString();
+}
+
+// realtime
+db.collection("fund").onSnapshot(render);
+
+function addTransaction(){
+  if(!isAdmin) return;
+
+  let raw = amount.value.replace(/,/g,'');
+  let val = parseInt(raw);
+
+  if(!desc.value || !val) return alert('Thiếu dữ liệu');
+
+  db.collection("fund").add({
+    desc: desc.value,
+    amount: val,
+    type: type.value,
+    date: formatDate()
+  });
+
+  desc.value=''; amount.value='';
+}
+
+function remove(id){
+  if(confirm('Xóa?')) db.collection("fund").doc(id).delete();
+}
+
+// 🔥 EXPORT EXCEL (CSV)
+function exportExcel(){
+  if(!isAdmin) return alert('Chỉ admin được xuất file');
+
+  let csv = "Ngày,Nội dung,Loại,Số tiền\n";
+
+  allData.forEach(item=>{
+    csv += `"${item.date}","${item.desc}","${item.type}","${item.amount}"\n`;
+  });
+
+  let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  let link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "quy_to.csv";
+  link.click();
+}
+</script>
+</body>
+</html>
