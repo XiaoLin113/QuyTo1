@@ -168,10 +168,19 @@ function logout(){
 }
 
 // ===== FORMAT =====
-amount.addEventListener('input', ()=>{
-  let v = amount.value.replace(/,/g,'').replace(/\D/g,'');
-  if(!v) return amount.value='';
-  amount.value = Number(v).toLocaleString('vi-VN');
+amount.addEventListener('input', () => {
+  let raw = amount.value;
+
+  // Chỉ giữ lại số
+  let cleaned = raw.replace(/[^\d]/g, '');
+
+  if (!cleaned) {
+    amount.value = '';
+    return;
+  }
+
+  // Format lại
+  amount.value = Number(cleaned).toLocaleString('vi-VN');
 });
 
 function formatDate(){ return new Date().toLocaleString('vi-VN'); }
