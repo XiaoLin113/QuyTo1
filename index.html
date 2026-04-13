@@ -145,8 +145,12 @@ function logout(){
   logoutBtn.classList.add('hidden');
 }
 
-// ===== FORMAT TIỀN (FIX MẤT SỐ) =====
-amount.addEventListener('input', function () {
+amount.addEventListener('input', function (e) {
+  // Lưu vị trí con trỏ hiện tại
+  let cursorPosition = this.selectionStart;
+  let originalLength = this.value.length;
+
+  // Chỉ lấy các chữ số
   let number = this.value.replace(/[^\d]/g, '');
 
   if (!number) {
@@ -154,7 +158,14 @@ amount.addEventListener('input', function () {
     return;
   }
 
-  this.value = Number(number).toLocaleString('vi-VN');
+  // Định dạng lại thành 3.111.000
+  let formatted = Number(number).toLocaleString('vi-VN');
+  this.value = formatted;
+
+  // Tính toán lại vị trí con trỏ để không bị nhảy về cuối dòng
+  let newLength = formatted.length;
+  cursorPosition = cursorPosition + (newLength - originalLength);
+  this.setSelectionRange(cursorPosition, cursorPosition);
 });
 
 function formatDate(){ return new Date().toLocaleString('vi-VN'); }
