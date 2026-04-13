@@ -5,12 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quỹ chung (Online)</title>
 
-<!-- FIX GitHub Pages 404 -->
-<!-- File này PHẢI đặt tên là index.html -->
-
-<!-- FIX GitHub Pages 404 -->
-<!-- File này PHẢI đặt tên là index.html -->
-
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -34,18 +28,6 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 </style>
 </head>
 <body>
-<!-- ⚠️ Hướng dẫn fix lỗi 404 GitHub Pages:
-1. Đảm bảo file này tên là: index.html
-2. Đặt ở THƯ MỤC GỐC của repo (không nằm trong folder khác)
-3. Vào Settings → Pages → chọn branch main
-4. Link sẽ là: https://username.github.io/ten-repo/
--->
-<!-- ⚠️ Hướng dẫn fix lỗi 404 GitHub Pages:
-1. Đảm bảo file này tên là: index.html
-2. Đặt ở THƯ MỤC GỐC của repo (không nằm trong folder khác)
-3. Vào Settings → Pages → chọn branch main
-4. Link sẽ là: https://username.github.io/ten-repo/
--->
 <div class="container">
 
 <div class="topbar">
@@ -84,7 +66,7 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 <div class="card">
 <h3>Tiền vào</h3>
 <table>
-<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th class="adminOnly">Xóa</th></tr></thead>
+<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th>Xóa</th></tr></thead>
 <tbody id="incomeList"></tbody>
 </table>
 </div>
@@ -92,7 +74,7 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 <div class="card">
 <h3>Tiền ra</h3>
 <table>
-<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th class="adminOnly">Xóa</th></tr></thead>
+<thead><tr><th>Ngày</th><th>Nội dung</th><th>Số tiền</th><th>Xóa</th></tr></thead>
 <tbody id="expenseList"></tbody>
 </table>
 </div>
@@ -102,14 +84,10 @@ th, td { padding:8px; border-bottom:1px solid #ddd; text-align:center; }
 <script>
 // ===== CONFIG FIREBASE =====
 const firebaseConfig = {
-    apiKey: "AIzaSyA18QOQP5Npb-YjeoqaxSQDb8SL3UE-lE4",
-    authDomain: "quyto-2ac7d.firebaseapp.com",
-    projectId: "quyto-2ac7d",
-    storageBucket: "quyto-2ac7d.firebasestorage.app",
-    messagingSenderId: "343716551161",
-    appId: "1:343716551161:web:c71cee317cf913cf984528",
-    measurementId: "G-4Q5KC7QNTV"
-  };
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+};
 
 let db = null;
 if(firebaseConfig.apiKey.includes("YOUR_")){
@@ -167,20 +145,16 @@ function logout(){
   logoutBtn.classList.add('hidden');
 }
 
-// ===== FORMAT =====
-amount.addEventListener('input', () => {
-  let raw = amount.value;
+// ===== FORMAT TIỀN (FIX MẤT SỐ) =====
+amount.addEventListener('input', function () {
+  let number = this.value.replace(/[^\d]/g, '');
 
-  // Chỉ giữ lại số
-  let cleaned = raw.replace(/[^\d]/g, '');
-
-  if (!cleaned) {
-    amount.value = '';
+  if (!number) {
+    this.value = '';
     return;
   }
 
-  // Format lại
-  amount.value = Number(cleaned).toLocaleString('vi-VN');
+  this.value = Number(number).toLocaleString('vi-VN');
 });
 
 function formatDate(){ return new Date().toLocaleString('vi-VN'); }
@@ -228,7 +202,7 @@ if(db){
 function addTransaction(){
   if(!isAdmin || !db) return;
 
-  let raw = amount.value.replace(/,/g,'');
+  let raw = amount.value.replace(/[^\d]/g,'');
   let val = parseInt(raw);
 
   if(!desc.value || !val) return alert('Thiếu dữ liệu');
