@@ -188,13 +188,25 @@ function render(snapshot){
   const parseDate = (value) => {
     if (!value) return 0;
     const s = String(value).trim();
-    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+
+    // Dữ liệu hiện tại có dạng: "HH:mm:ss d/m/yyyy"
+    let m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      return new Date(
+        Number(m[6]), Number(m[5]) - 1, Number(m[4]),
+        Number(m[1]), Number(m[2]), Number(m[3] || 0)
+      ).getTime();
+    }
+
+    // Hỗ trợ dữ liệu cũ dạng: "d/m/yyyy, HH:mm:ss"
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (m) {
       return new Date(
         Number(m[3]), Number(m[2]) - 1, Number(m[1]),
         Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0)
       ).getTime();
     }
+
     const parsed = Date.parse(s);
     return Number.isNaN(parsed) ? 0 : parsed;
   };
